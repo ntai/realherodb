@@ -3,7 +3,6 @@ let router = express.Router();
 const promise = require('bluebird');
 const initOptions = { promiseLib: promise }; // overriding the default (ES6 Promise);
 const pgp = require('pg-promise')(initOptions);
-const SqlString = require('sqlstring');
 
 const cn = {
   host: 'localhost',
@@ -16,12 +15,13 @@ const connection = pgp(cn);
 
 router.route('/')
     .get((req, res, next) => {
-        let statement = 'select * from hero';
-        // "E" + SqlString makes it as Posix SQL escaped string for postgresql
-        if (req.query.name) statement = statement + " where name like E" + SqlString.escape("%"+req.query.name+"%");
-        statement = statement + ' order by id';
-        console.log("Q: " + statement);
-        connection.any(statement)
+        let statement = 'select * from hero order by id';
+        let params = [];
+        if (req.query.name) {
+            statement = 'select * from hero where name like $1 order by id';
+            params = [ "%"+req.query.name+"%" ];
+        }
+        connection.any(statement, params)
             .then(function (data) {
                 res.status(200)
                     .json(data);
@@ -32,7 +32,7 @@ router.route('/')
             })
     })
     .post((req, res, next) => {
-        connection.one("insert into hero(name) values(E$1) returning id, name", [SqlString.escape(req.body.name)])
+        connection.one("insert into hero(name) values($1) returning id, name", [req.body.name])
             .then(function (data) {
                 res.status(200)
                     .json(data);
@@ -68,7 +68,7 @@ router.route('/:id')
     })
     .put((req, res, next) => {
         const id = parseInt(req.params.id);
-        connection.none('update hero set name=E$2 where id = $1', [id, SqlString.escape(req.body.name)])
+        connection.none('update hero set name=$2 where id = $1', [id, req.body.name])
             .then(function(data) {
                 res.status(200)
                     .json(data);
