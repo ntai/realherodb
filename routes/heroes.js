@@ -32,7 +32,7 @@ router.route('/')
             })
     })
     .post((req, res, next) => {
-        connection.one("insert into hero(name) values($1) returning id, name", ["E"+SqlString.escape(req.body.name)])
+        connection.one("insert into hero(name) values(E$1) returning id, name", [SqlString.escape(req.body.name)])
             .then(function (data) {
                 res.status(200)
                     .json(data);
@@ -68,7 +68,7 @@ router.route('/:id')
     })
     .put((req, res, next) => {
         const id = parseInt(req.params.id);
-        connection.none('update hero set name=$2 where id = $1', [id, "E"+SqlString.escape(req.body.name)])
+        connection.none('update hero set name=E$2 where id = $1', [id, SqlString.escape(req.body.name)])
             .then(function(data) {
                 res.status(200)
                     .json(data);
