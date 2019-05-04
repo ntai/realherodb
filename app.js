@@ -7,6 +7,8 @@ const cors = require('cors');
 
 const indexRouter = require('./routes/index');
 const heroesRouter = require('./routes/heroes');
+const vdb = require('./db');
+vdb.initialize();
 
 let app = express();
 

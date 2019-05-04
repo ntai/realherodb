@@ -1,43 +1,32 @@
 const express = require('express');
 let router = express.Router();
-const promise = require('bluebird');
-const initOptions = { promiseLib: promise }; // overriding the default (ES6 Promise);
-const pgp = require('pg-promise')(initOptions);
-
-const cn = {
-  host: 'localhost',
-  port: 5432,
-  database: 'testdb',
-  user: 'ntai'
-};
-
-const connection = pgp(cn);
+const vdb = require('../db.js');
+const connection = vdb.connection; // knex
 
 router.route('/')
     .get((req, res, next) => {
-        let statement = 'select * from hero order by id';
-        let params = [];
+        let statement = connection('hero').select().orderBy('id');
+
         if (req.query.name) {
-            statement = 'select * from hero where name like $1 order by id';
-            params = [ "%"+req.query.name+"%" ];
+            statement.andWhere( 'name', 'like', '%' + req.query.name + '%');
         }
-        connection.any(statement, params)
-            .then(function (data) {
+
+        statement
+            .then( function (data) {
                 res.status(200)
                     .json(data);
-                })
+            })
             .catch(function (err) {
                 // console.log(statement);
-                return next(err);
-            })
+                return next(err)});
     })
     .post((req, res, next) => {
-        connection.one("insert into hero(name) values($1) returning id, name", [req.body.name])
-            .then(function (data) {
-                res.status(200)
-                    .json(data);
+        connection('hero').insert({name: req.body.name}).returning(["id", "name"])
+            .then(function(data)
+            {
+              res.status(200).json(data);
             })
-            .catch( function(err) {
+            .catch( err => {
                 console.error(err);
                 return next(err);
             })
@@ -46,29 +35,29 @@ router.route('/')
 router.route('/:id')
     .get((req, res, next) => {
         const id = parseInt(req.params.id);
-        connection.one('select * from hero where id = $1', id)
-            .then(function (data) {
-                res.status(200)
-                    .json(data);
+        connection('hero').select().where('id', '=', id)
+            .first()
+            .then(function(data) {
+                res.status(200).json(data);
             })
-            .catch(function (err) {
-                return next(err);
-            });
+            .catch(err => next(err))
     })
     .delete((req, res, next) => {
         const id = parseInt(req.params.id);
-        connection.none('delete from hero where id = $1', id)
+        connection('hero').delete().where('id', '=', id)
             .then(function(data) {
                 res.status(200)
                     .json(data);
             })
             .catch( function(err) {
-                return next(err);
+                next(err);
             });
     })
     .put((req, res, next) => {
         const id = parseInt(req.params.id);
-        connection.none('update hero set name=$2 where id = $1', [id, req.body.name])
+        connection('hero')
+            .where( {id: id})
+            .update( {name: req.body.name} )
             .then(function(data) {
                 res.status(200)
                     .json(data);
@@ -76,8 +65,7 @@ router.route('/:id')
             .catch( function(err) {
                 return next(err);
             });
-    })
-;
+    });
 
 module.exports = router;
 
